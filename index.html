@@ -405,8 +405,9 @@
                 finalVideoPreview.src = videoUrl;
                 finalVideoPreview.load();
 
-                finalPreviewContainer.className = aspectRatioPlaceholder.className;
-                
+//                finalPreviewContainer.className = aspectRatioPlaceholder.className;
+                finalPreviewContainer.className = aspectRatioPlaceholder.className.split(' ').filter(c => c.startsWith('aspect-')).join(' ');
+                finalPreviewContainer.classList.add('aspect-ratio-box', 'bg-gray-800', 'shadow-2xl');          
                 downloadBtn.href = videoUrl;
                 downloadBtn.download = `teleprompter_video_${currentRatio}_${Date.now()}.webm`;
                 downloadBtn.classList.remove('hidden');

@@ -1,4 +1,12 @@
 
+
+
+<!-- PWA Manifest Link -->
+<link rel="manifest" href="./manifest.json">
+<!-- PWA Theme Color -->
+<meta name="theme-color" content="#B3A1C9">
+
+
 <!--
     Teleprompter Pro - Aplicação Web com Câmera e Gravação
     Autor: Gemini
@@ -540,12 +548,21 @@
         // O LISTENER: Adiciona a função de notificação ao botão de download
         downloadBtn.addEventListener('click', showDownloadNotification);
     });
-
-<!-- PWA Manifest Link -->
-<link rel="manifest" href="./manifest.json">
-<!-- PWA Theme Color -->
-<meta name="theme-color" content="#B3A1C9">
-
+// --- REGISTRO DO SERVICE WORKER PWA ---
+document.addEventListener('DOMContentLoaded', () => {
+    if ('serviceWorker' in navigator) {
+        // Usa setTimeout para dar tempo ao DOM e evitar falha de timing
+        setTimeout(() => {
+            navigator.serviceWorker.register('./service-worker.js', {scope: './'})
+                .then(registration => {
+                    console.log('Service Worker registrado com sucesso:', registration.scope);
+                })
+                .catch(error => {
+                    console.error('Falha no registro do Service Worker:', error);
+                });
+        }, 1000); // 1 segundo de atraso para estabilidade máxima
+    }
+});
 
 
 </script>

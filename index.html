@@ -1,84 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter Pro</title>
 
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- PWA Theme Color & Metadata -->
+    <meta name="theme-color" content="#B3A1C9">
+    <meta name="description" content="Teleprompter com gravação de vídeo para dispositivos móveis.">
 
-
-<!-- PWA Manifest Link -->
-<link rel="manifest" href="./manifest.json">
-<!-- PWA Theme Color -->
-<meta name="theme-color" content="#B3A1C9">
-
-
-<!--
-    Teleprompter Pro - Aplicação Web com Câmera e Gravação
-    Autor: Gemini
-    Descrição: Aplicação de teleprompter estável, com proporção correta, overlay visível e notificação de download.
-    NOTA: O registro do PWA foi removido para evitar falhas de inicialização no ambiente do usuário.
--->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    'pastel-purple': '#B3A1C9', // Roxo pastel principal
-                    'pastel-pink': '#F7D9D9',
-                    'pastel-blue': '#C3E0E5',
-                    'primary-btn': '#8A2BE2', // Roxo mais forte para botões
-                    'recording-btn': '#D9534F', // Vermelho para gravação
-                    'connect-btn': '#5cb85c', // Verde para conectar
-                },
-                fontFamily: {
-                    sans: ['Inter', 'sans-serif'],
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'pastel-purple': '#B3A1C9',
+                        'pastel-pink': '#F7D9D9',
+                        'pastel-blue': '#C3E0E5',
+                        'primary-btn': '#8A2BE2',
+                        'recording-btn': '#D9534F',
+                        'connect-btn': '#5cb85c',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
                 },
             },
-        },
-    }
-</script>
-<style>
-    body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f0f4f8; /* Fundo cinza/azul claro */
-    }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; /* Fundo cinza/azul claro */
+        }
 
-    /* Estilo para garantir que o botão "A Gravar..." seja proeminente */
-    .btn-recording {
-        animation: pulse 1.5s infinite;
-    }
+        /* Estilo para garantir que o botão "A Gravar..." seja proeminente */
+        .btn-recording {
+            animation: pulse 1.5s infinite;
+        }
 
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(217, 83, 79, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0); }
-    }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(217, 83, 79, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0); }
+        }
 
-    /* O contêiner de proporção usa padding-bottom para definir a altura responsiva */
-    .aspect-ratio-box {
-        position: relative;
-        width: 100%;
-        max-width: 600px; /* Limite de largura para desktop */
-        margin: 0 auto;
-        border-radius: 1.5rem;
-        overflow: hidden;
-        min-height: 300px; 
-    }
+        /* O contêiner de proporção usa padding-bottom para definir a altura responsiva */
+        .aspect-ratio-box {
+            position: relative;
+            width: 100%;
+            max-width: 600px; /* Limite de largura para desktop */
+            margin: 0 auto;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            min-height: 300px; 
+        }
 
-    /* Garante que os filhos do box (video e canvas) se ajustem ao contêiner responsivo */
-    .aspect-ratio-box > * {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        max-width: 100%;
-        height: auto; 
-        object-fit: cover; /* MANTÉM A PROPORÇÃO E COBRE O ESPAÇO SEM ESTICAR */
-    }
+        /* Garante que os filhos do box (video e canvas) se ajustem ao contêiner responsivo */
+        .aspect-ratio-box > * {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            height: auto; 
+            object-fit: cover; /* MANTÉM A PROPORÇÃO E COBRE O ESPAÇO SEM ESTICAR */
+        }
 
-    /* Classes geradas por JS para forçar a proporção (padding-bottom = height/width * 100%) */
-    .aspect-16-9 { padding-bottom: 56.25%; } /* 9 / 16 = 0.5625 */
-    .aspect-9-16 { padding-bottom: 177.77%; } /* 16 / 9 = 1.7777 */
-    .aspect-4-3 { padding-bottom: 75%; } /* 3 / 4 = 0.75 */
-    .aspect-1-1 { padding-bottom: 100%; } /* 1 / 1 = 1.0 */
-</style>
+        /* Classes geradas por JS para forçar a proporção (padding-bottom = height/width * 100%) */
+        .aspect-16-9 { padding-bottom: 56.25%; } /* 9 / 16 = 0.5625 */
+        .aspect-9-16 { padding-bottom: 177.77%; } /* 16 / 9 = 1.7777 */
+        .aspect-4-3 { padding-bottom: 75%; } /* 3 / 4 = 0.75 */
+        .aspect-1-1 { padding-bottom: 100%; } /* 1 / 1 = 1.0 */
+    </style>
+</head>
+<body>
 
 <div class="p-4 md:p-8 min-h-screen">
     <h1 class="text-4xl font-extrabold text-center text-pastel-purple mb-6">Teleprompter Pro</h1>
@@ -102,7 +103,7 @@
         </div>
     </div>
 
-    <!-- BOTÃO DE GRAVAÇÃO -->
+    <!-- BOTão DE GRAVAÇÃO -->
     <div class="flex justify-center my-6">
         <button id="record-btn" class="w-full max-w-sm bg-primary-btn text-white text-xl font-bold p-3 rounded-full shadow-lg transition transform hover:scale-[1.01] disabled:opacity-50" disabled>
             Iniciar Gravação
@@ -548,21 +549,4 @@
         // O LISTENER: Adiciona a função de notificação ao botão de download
         downloadBtn.addEventListener('click', showDownloadNotification);
     });
-// --- REGISTRO DO SERVICE WORKER PWA ---
-document.addEventListener('DOMContentLoaded', () => {
-    if ('serviceWorker' in navigator) {
-        // Usa setTimeout para dar tempo ao DOM e evitar falha de timing
-        setTimeout(() => {
-            navigator.serviceWorker.register('./service-worker.js', {scope: './'})
-                .then(registration => {
-                    console.log('Service Worker registrado com sucesso:', registration.scope);
-                })
-                .catch(error => {
-                    console.error('Falha no registro do Service Worker:', error);
-                });
-        }, 1000); // 1 segundo de atraso para estabilidade máxima
-    }
-});
-
-
 </script>

@@ -1,9 +1,10 @@
 // Nome do cache e arquivos a serem armazenados em cache
 const CACHE_NAME = 'teleprompter-pro-cache-v1';
 const urlsToCache = [
-    '/index.html',
-    // O Tailwind é carregado via CDN, por isso não o colocamos aqui, mas é crucial
-    // que o arquivo principal seja armazenado em cache para uso offline.
+    './index.html', // Alterado para o novo nome do arquivo
+    // Ícones PWA (assumidos no diretório raiz para este exemplo)
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
 self.addEventListener('install', event => {

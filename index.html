@@ -48,17 +48,17 @@
             70% { box-shadow: 0 0 0 10px rgba(217, 83, 79, 0); }
             100% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0); }
         }
-
         /* O contêiner de proporção usa padding-bottom para definir a altura responsiva */
-        .aspect-ratio-box {
-            position: relative;
-            width: 100%;
-            max-width: 600px; /* Limite de largura para desktop */
-            margin: 0 auto;
-            border-radius: 1.5rem;
-            overflow: hidden;
-            min-height: 300px; 
-        }
+.aspect-ratio-box {
+    position: relative;
+    width: 100%;
+    max-width: 600px; /* Limite de largura para desktop */
+    margin: 0 auto;
+    border-radius: 1.5rem;
+    overflow: hidden;
+    min-height: 300px;
+    max-height: 80vh; /* NOVO: Limita a altura máxima da janela de vídeo */
+}
 
         /* Garante que os filhos do box (video e canvas) se ajustem ao contêiner responsivo */
         .aspect-ratio-box > * {

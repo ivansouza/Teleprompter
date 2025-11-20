@@ -2,7 +2,7 @@
 "name": "Teleprompter Pro",
 "short_name": "Teleprompter",
 "description": "Teleprompter com gravação de vídeo para dispositivos móveis.",
-"start_url": "/index.html",
+"start_url": "./index.html",
 "display": "standalone",
 "background_color": "#f0f4f8",
 "theme_color": "#B3A1C9",

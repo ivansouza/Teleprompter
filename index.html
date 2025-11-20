@@ -1,0 +1,543 @@
+<!--
+    Teleprompter Pro - Aplicação Web com Câmera e Gravação
+    Autor: Gemini
+    Descrição: Aplicação de teleprompter estável, com proporção correta, overlay visível e notificação de download.
+    NOTA: O registro do PWA foi removido para evitar falhas de inicialização no ambiente do usuário.
+-->
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    'pastel-purple': '#B3A1C9', // Roxo pastel principal
+                    'pastel-pink': '#F7D9D9',
+                    'pastel-blue': '#C3E0E5',
+                    'primary-btn': '#8A2BE2', // Roxo mais forte para botões
+                    'recording-btn': '#D9534F', // Vermelho para gravação
+                    'connect-btn': '#5cb85c', // Verde para conectar
+                },
+                fontFamily: {
+                    sans: ['Inter', 'sans-serif'],
+                },
+            },
+        },
+    }
+</script>
+<style>
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: #f0f4f8; /* Fundo cinza/azul claro */
+    }
+
+    /* Estilo para garantir que o botão "A Gravar..." seja proeminente */
+    .btn-recording {
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.7); }
+        70% { box-shadow: 0 0 0 10px rgba(217, 83, 79, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0); }
+    }
+
+    /* O contêiner de proporção usa padding-bottom para definir a altura responsiva */
+    .aspect-ratio-box {
+        position: relative;
+        width: 100%;
+        max-width: 600px; /* Limite de largura para desktop */
+        margin: 0 auto;
+        border-radius: 1.5rem;
+        overflow: hidden;
+        min-height: 300px; 
+    }
+
+    /* Garante que os filhos do box (video e canvas) se ajustem ao contêiner responsivo */
+    .aspect-ratio-box > * {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        height: auto; 
+        object-fit: cover; /* MANTÉM A PROPORÇÃO E COBRE O ESPAÇO SEM ESTICAR */
+    }
+
+    /* Classes geradas por JS para forçar a proporção (padding-bottom = height/width * 100%) */
+    .aspect-16-9 { padding-bottom: 56.25%; } /* 9 / 16 = 0.5625 */
+    .aspect-9-16 { padding-bottom: 177.77%; } /* 16 / 9 = 1.7777 */
+    .aspect-4-3 { padding-bottom: 75%; } /* 3 / 4 = 0.75 */
+    .aspect-1-1 { padding-bottom: 100%; } /* 1 / 1 = 1.0 */
+</style>
+
+<div class="p-4 md:p-8 min-h-screen">
+    <h1 class="text-4xl font-extrabold text-center text-pastel-purple mb-6">Teleprompter Pro</h1>
+
+    <!-- JANELA DE GRAVAÇÃO -->
+    <div id="video-wrapper" class="w-full mx-auto max-w-xl">
+        <div id="aspect-ratio-placeholder" class="aspect-ratio-box aspect-9-16 bg-gray-800 shadow-2xl">
+            
+            <!-- Botão de Conexão Inicial -->
+            <div id="connect-prompt" class="flex items-center justify-center w-full h-full p-4">
+                <button id="connect-btn" onclick="initCamera()" class="bg-connect-btn text-white text-xl font-bold p-4 rounded-full shadow-xl transition transform hover:scale-[1.05]">
+                    Ligar Câmera
+                </button>
+            </div>
+
+            <!-- Vídeo da Câmera (Preview) - Ficará visível após a conexão -->
+            <video id="video-preview" autoplay playsinline muted class="hidden"></video>
+
+            <!-- Canvas para o Overlay - Ficará visível sobre o vídeo após a conexão -->
+            <canvas id="teleprompter-canvas" class="hidden"></canvas>
+        </div>
+    </div>
+
+    <!-- BOTÃO DE GRAVAÇÃO -->
+    <div class="flex justify-center my-6">
+        <button id="record-btn" class="w-full max-w-sm bg-primary-btn text-white text-xl font-bold p-3 rounded-full shadow-lg transition transform hover:scale-[1.01] disabled:opacity-50" disabled>
+            Iniciar Gravação
+        </button>
+    </div>
+
+    <!-- PAINEL DE CONTROLE -->
+    <div class="max-w-xl mx-auto mb-6 bg-white p-6 rounded-xl shadow-lg">
+        <label for="script-text" class="block text-lg font-medium text-gray-700 mb-2">Seu Script / Texto:</label>
+        <textarea id="script-text" class="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-pastel-purple focus:border-pastel-purple" placeholder="Cole ou digite seu texto aqui para o teleprompter..."></textarea>
+        
+        <div class="mt-4">
+            <label for="scroll-speed" class="block text-lg font-medium text-gray-700 mb-2">Velocidade de Rolagem: <span id="speed-value" class="font-bold text-pastel-purple">8</span></label>
+            <input type="range" id="scroll-speed" min="1" max="10" value="8" class="w-full h-2 bg-pastel-blue rounded-lg appearance-none cursor-pointer">
+        </div>
+
+        <div class="mt-4">
+            <label class="block text-lg font-medium text-gray-700 mb-2">Formato do Vídeo:</label>
+            <div id="ratio-buttons" class="flex flex-wrap gap-2">
+                <button data-ratio="16:9" class="aspect-btn bg-pastel-purple text-white px-4 py-2 rounded-full font-semibold transition hover:bg-pastel-purple/80">16:9</button>
+                <button data-ratio="9:16" class="aspect-btn bg-primary-btn text-white px-4 py-2 rounded-full font-semibold transition hover:bg-primary-btn/80">9:16</button>
+                <button data-ratio="4:3" class="aspect-btn bg-pastel-purple text-white px-4 py-2 rounded-full font-semibold transition hover:bg-pastel-purple/80">4:3</button>
+                <button data-ratio="1:1" class="aspect-btn bg-pastel-purple text-white px-4 py-2 rounded-full font-semibold transition hover:bg-pastel-purple/80">1:1</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SEÇÃO DE PRÉ-VISUALIZAÇÃO E DOWNLOAD -->
+    <div id="final-preview-section" class="mt-8 pt-4 border-t border-gray-300 hidden">
+        <h2 class="text-2xl font-semibold text-gray-700 mb-4 text-center">Pré-visualização do Vídeo Final</h2>
+        <div id="final-preview-container" class="aspect-ratio-box bg-gray-800 shadow-2xl">
+            <!-- Vídeo Gravado -->
+            <video id="final-video-preview" controls class="w-full h-full object-cover"></video>
+        </div>
+
+        <div class="flex justify-center mt-6">
+            <!-- Modal de Notificação de Download (Oculto) -->
+            <div id="download-notification" class="fixed inset-0 bg-black bg-opacity-50 items-center justify-center z-50 hidden">
+                <div class="bg-white p-6 rounded-lg shadow-2xl text-center max-w-xs mx-auto transform transition-all">
+                    <p class="text-xl font-bold text-connect-btn mb-4">Transferência Iniciada!</p>
+                    <p class="text-gray-700">Seu vídeo deve aparecer na sua pasta de downloads.</p>
+                    <button id="close-notification" class="mt-4 bg-primary-btn text-white px-4 py-2 rounded-full hover:bg-primary-btn/80">
+                        Fechar
+                    </button>
+                </div>
+            </div>
+
+            <a id="download-btn" class="hidden bg-pastel-purple text-white text-xl font-bold p-3 rounded-full shadow-lg transition transform hover:scale-[1.01] text-center cursor-pointer">
+                Transferir Vídeo (WebM)
+            </a>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- Variáveis Globais ---
+    const ASPECT_RATIOS = {
+        '16:9': { w: 1280, h: 720, css: 'aspect-16-9' },
+        '9:16': { w: 720, h: 1280, css: 'aspect-9-16' },
+        '4:3': { w: 960, h: 720, css: 'aspect-4-3' },
+        '1:1': { w: 720, h: 720, css: 'aspect-1-1' },
+    };
+
+    let currentRatio = '9:16';
+    let mediaStream = null; 
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let isRecording = false; 
+    let isScrolling = false; 
+    let animationFrameId = null; 
+
+    // Canvas rendering properties
+    const FONT_SIZE = 32; 
+    const HORIZONTAL_PADDING_RATIO = 0.5; 
+    let scriptLines = [];
+    let scrollPosition = 0;
+    let startTime = null;
+
+    // --- Elementos do DOM ---
+    const videoPreview = document.getElementById('video-preview');
+    const canvas = document.getElementById('teleprompter-canvas');
+    const ctx = canvas.getContext('2d');
+    const recordBtn = document.getElementById('record-btn');
+    const scriptTextarea = document.getElementById('script-text');
+    const scrollSpeed = document.getElementById('scroll-speed');
+    const speedValue = document.getElementById('speed-value');
+    const aspectRatioPlaceholder = document.getElementById('aspect-ratio-placeholder');
+    const ratioButtons = document.getElementById('ratio-buttons');
+    const finalPreviewSection = document.getElementById('final-preview-section');
+    const finalVideoPreview = document.getElementById('final-video-preview');
+    const finalPreviewContainer = document.getElementById('final-preview-container');
+    const downloadBtn = document.getElementById('download-btn');
+    const connectPrompt = document.getElementById('connect-prompt');
+    const connectBtn = document.getElementById('connect-btn');
+    const downloadNotification = document.getElementById('download-notification');
+    const closeNotificationBtn = document.getElementById('close-notification');
+
+    // --- Funções de Inicialização e Lógica do Teleprompter ---
+
+    /**
+     * Define a proporção do Canvas e do contêiner de visualização.
+     */
+    function setAspectRatio(ratioKey) {
+        currentRatio = ratioKey;
+        const { w, h, css } = ASPECT_RATIOS[ratioKey];
+
+        // O Canvas e o Video Preview recebem as mesmas dimensões internas
+        canvas.width = w;
+        canvas.height = h;
+        videoPreview.width = w;
+        videoPreview.height = h;
+
+        // Atualiza a classe CSS para forçar a proporção visual do contêiner
+        aspectRatioPlaceholder.className = aspectRatioPlaceholder.className.split(' ').filter(c => !c.startsWith('aspect-')).join(' ');
+        aspectRatioPlaceholder.classList.add('aspect-ratio-box', 'bg-gray-800', 'shadow-2xl', css);
+        
+        prepareScript(); // Re-prepara o script com as novas dimensões
+
+        // Garante que os botões refletem a seleção
+        document.querySelectorAll('.aspect-btn').forEach(btn => {
+            btn.classList.remove('bg-primary-btn');
+            btn.classList.add('bg-pastel-purple');
+            if (btn.dataset.ratio === ratioKey) {
+                btn.classList.remove('bg-pastel-purple');
+                btn.classList.add('bg-primary-btn');
+            }
+        });
+    }
+
+    /**
+     * Prepara o script quebrando o texto em linhas para caber na largura do Canvas.
+     */
+    function prepareScript() {
+        scriptLines = [];
+
+        const text = scriptTextarea.value || "Bem-vindo ao Teleprompter Pro! Insira seu texto acima e escolha o formato. Clique em 'Iniciar Gravação' para começar a rolar.";
+        const words = text.split(' ');
+        
+        const maxWidth = canvas.width - (canvas.width * HORIZONTAL_PADDING_RATIO); 
+
+        ctx.font = `${FONT_SIZE}px Inter`;
+        ctx.textAlign = 'center';
+
+        let currentLine = '';
+        for (let i = 0; i < words.length; i++) {
+            const word = words[i];
+            const testLine = currentLine + (currentLine ? ' ' : '') + word;
+            const metrics = ctx.measureText(testLine);
+
+            if (metrics.width > maxWidth && currentLine) {
+                scriptLines.push(currentLine);
+                currentLine = word;
+            } else {
+                currentLine = testLine;
+            }
+        }
+        if (currentLine) {
+            scriptLines.push(currentLine);
+        }
+        scrollPosition = canvas.height + (FONT_SIZE * 2); // Garante que o texto comece fora da tela
+    }
+
+    /**
+     * Desenha um frame do vídeo e do overlay no Canvas.
+     */
+    function drawFrame(timestamp) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // --- 1. Desenhar o Vídeo da Câmera (Fundo) - Lógica de object-fit: cover ---
+        if (videoPreview.videoWidth > 0) {
+            const videoRatio = videoPreview.videoWidth / videoPreview.videoHeight;
+            const canvasRatio = canvas.width / canvas.height;
+            let drawWidth = canvas.width;
+            let drawHeight = canvas.height;
+            let x = 0;
+            let y = 0;
+
+            if (videoRatio > canvasRatio) { 
+                drawHeight = canvas.height;
+                drawWidth = videoRatio * drawHeight;
+                x = (canvas.width - drawWidth) / 2;
+            } else { 
+                drawWidth = canvas.width;
+                drawHeight = drawWidth / videoRatio;
+                y = (canvas.height - drawHeight) / 2;
+            }
+            ctx.drawImage(videoPreview, x, y, drawWidth, drawHeight);
+        } else {
+            // Desenha o fundo escuro (apenas antes do vídeo carregar)
+            ctx.fillStyle = '#1f2937'; 
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+
+        // --- 2. Desenhar o Overlay (Visível para o usuário) ---
+        // O overlay é desenhado para o usuário ler, mesmo durante a gravação.
+        if (videoPreview.videoWidth > 0) { 
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Fundo semi-transparente
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Calcula a rolagem
+            if (isScrolling) {
+                 if (!startTime) {
+                    startTime = timestamp;
+                }
+                const elapsedTime = (timestamp - startTime) / 1000;
+                const scrollSpeedValue = parseInt(scrollSpeed.value) * 8; // Multiplicador de velocidade
+                
+                const lineHeight = FONT_SIZE * 1.5;
+                const totalScriptHeight = scriptLines.length * lineHeight;
+                
+                let currentScrollY = canvas.height + (FONT_SIZE * 2) - (scrollSpeedValue * elapsedTime);
+
+                if (currentScrollY + totalScriptHeight < 0) {
+                    stopRecording(); // Paragem automática
+                    return; 
+                }
+                scrollPosition = currentScrollY;
+            } else {
+                scrollPosition = canvas.height + (FONT_SIZE * 2); // Texto escondido fora da tela
+            }
+
+            // Desenha as linhas do script
+            ctx.font = `${FONT_SIZE}px Inter`;
+            ctx.textAlign = 'center';
+
+            for (let i = 0; i < scriptLines.length; i++) {
+                const line = scriptLines[i];
+                const y = scrollPosition + (i * (FONT_SIZE * 1.5));
+
+                ctx.strokeStyle = '#000000'; // Contorno preto
+                ctx.lineWidth = 4;
+                ctx.strokeText(line, canvas.width / 2, y);
+
+                ctx.fillStyle = '#FFFF00'; // Texto amarelo
+                ctx.fillText(line, canvas.width / 2, y);
+            }
+        }
+
+        animationFrameId = requestAnimationFrame(drawFrame);
+    }
+
+    /**
+     * Inicia a gravação do stream de vídeo (do videoPreview limpo).
+     */
+    function startRecording() {
+        if (isRecording) {
+            stopRecording();
+            return;
+        }
+        
+        if (!mediaStream) {
+            alert('A câmera não está ativa. Por favor, ligue a câmera primeiro.');
+            return;
+        }
+
+        if (scriptLines.length === 0) {
+            prepareScript();
+        }
+
+        isRecording = true;
+        isScrolling = true; 
+        startTime = null; 
+
+        finalPreviewSection.classList.add('hidden');
+        downloadBtn.classList.add('hidden');
+
+        recordBtn.textContent = 'A Gravar... Clique para Parar';
+        recordBtn.classList.remove('bg-primary-btn');
+        recordBtn.classList.add('bg-recording-btn', 'btn-recording');
+
+        // --- Configuração do MediaRecorder para Gravar o stream do videoPreview (LIMPO) ---
+        // Este modo grava o vídeo limpo, mas sem o corte de proporção exato do Canvas.
+        try {
+            const videoTrack = mediaStream.getVideoTracks()[0];
+            const audioTrack = mediaStream.getAudioTracks()[0];
+            const cleanStream = new MediaStream([videoTrack, audioTrack]);
+
+            mediaRecorder = new MediaRecorder(cleanStream, { mimeType: 'video/webm; codecs="vp8, opus"' });
+            recordedChunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    recordedChunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                isRecording = false;
+                isScrolling = false; 
+                
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                const videoUrl = URL.createObjectURL(blob);
+
+                finalPreviewSection.classList.remove('hidden');
+
+                finalVideoPreview.src = videoUrl;
+                finalVideoPreview.load();
+
+                finalPreviewContainer.className = aspectRatioPlaceholder.className;
+                
+                downloadBtn.href = videoUrl;
+                downloadBtn.download = `teleprompter_video_${currentRatio}_${Date.now()}.webm`;
+                downloadBtn.classList.remove('hidden');
+
+                recordBtn.textContent = 'Iniciar Gravação';
+                recordBtn.classList.remove('btn-recording', 'bg-recording-btn');
+                recordBtn.classList.add('bg-primary-btn');
+                recordBtn.disabled = false;
+                
+                scrollPosition = canvas.height + (FONT_SIZE * 2); 
+                startTime = null;
+                prepareScript(); 
+            };
+
+            mediaRecorder.start();
+
+        } catch (error) {
+            console.error('Erro ao iniciar MediaRecorder:', error);
+            isRecording = false;
+            isScrolling = false;
+            recordBtn.textContent = 'ERRO! Tente novamente.';
+            recordBtn.classList.remove('btn-recording', 'bg-recording-btn');
+            recordBtn.classList.add('bg-primary-btn');
+        }
+    }
+
+    /**
+     * Para a gravação.
+     */
+    function stopRecording() {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
+        }
+    }
+
+    /**
+     * Inicializa a câmera e inicia o loop de desenho. (Chamada pelo clique do botão)
+     */
+    async function initCamera() {
+        connectBtn.disabled = true;
+        connectBtn.textContent = 'A Ligar Câmera...';
+        
+        try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: 'user',
+                    width: { ideal: 1280 }, 
+                    height: { ideal: 720 }
+                },
+                audio: true,
+            });
+
+            videoPreview.srcObject = mediaStream;
+
+            videoPreview.onloadedmetadata = () => {
+                setAspectRatio(currentRatio);
+                startDrawFrameLoop();
+                
+                // Esconde o botão de conexão e mostra a câmera e o canvas
+                connectPrompt.classList.add('hidden');
+                videoPreview.classList.remove('hidden'); 
+                canvas.classList.remove('hidden');       
+                recordBtn.disabled = false;
+            };
+
+        } catch (err) {
+            console.error("Erro ao acessar a câmera:", err);
+            connectBtn.textContent = 'ERRO: Câmera não acessível.';
+            connectBtn.disabled = false;
+        }
+    }
+    
+    /**
+     * Inicia o loop de requestAnimationFrame apenas uma vez.
+     */
+    function startDrawFrameLoop() {
+        if (!animationFrameId) {
+            animationFrameId = requestAnimationFrame(drawFrame);
+        }
+    }
+
+    /**
+     * Mostra a notificação de download e inicia o download.
+     */
+    function showDownloadNotification(e) {
+        e.preventDefault(); 
+        
+        // Exibe o modal
+        downloadNotification.classList.add('flex');
+        downloadNotification.classList.remove('hidden');
+        
+        // Listener para fechar e disparar o download
+        const handleClose = () => {
+            downloadNotification.classList.remove('flex');
+            downloadNotification.classList.add('hidden');
+            
+            // Dispara o download após o modal fechar
+            const tempLink = document.createElement('a');
+            tempLink.href = downloadBtn.href;
+            tempLink.download = downloadBtn.download;
+            document.body.appendChild(tempLink);
+            tempLink.click();
+            document.body.removeChild(tempLink);
+
+            closeNotificationBtn.removeEventListener('click', handleClose);
+        };
+        
+        closeNotificationBtn.addEventListener('click', handleClose);
+
+        // Adiciona um timeout caso o usuário não clique no botão
+        setTimeout(() => {
+            if (downloadNotification.classList.contains('flex')) {
+                handleClose();
+            }
+        }, 5000); // Fecha após 5 segundos
+    }
+
+
+    // --- Listeners de Eventos (Carregamento e Interações) ---
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Inicializa o aspecto 9:16 como ativo no carregamento
+        setAspectRatio(currentRatio);
+
+        // Adiciona listeners para os controles
+        recordBtn.addEventListener('click', startRecording);
+
+        ratioButtons.addEventListener('click', (e) => {
+            if (e.target.classList.contains('aspect-btn')) {
+                setAspectRatio(e.target.dataset.ratio);
+            }
+        });
+
+        scriptTextarea.addEventListener('input', prepareScript);
+        scrollSpeed.addEventListener('input', (e) => {
+            speedValue.textContent = e.target.value;
+            prepareScript();
+        });
+        
+        // O LISTENER: Adiciona a função de notificação ao botão de download
+        downloadBtn.addEventListener('click', showDownloadNotification);
+    });
+</script>
+

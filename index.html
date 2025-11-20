@@ -1,75 +1,85 @@
 <!--
     Teleprompter Pro - Aplicação Web com Câmera e Gravação
     Autor: Gemini
-    Descrição: Aplicação de teleprompter estável, com proporção correta, overlay visível e notificação de download.
-    NOTA: O registro do PWA foi removido para evitar falhas de inicialização no ambiente do usuário.
+    Descrição: Aplicação de teleprompter estável (PWA), com proporção correta, overlay visível e notificação de download.
+    NOTA: O Service Worker e o Manifest são incluídos para a funcionalidade PWA.
 -->
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-    tailwind.config = {
-        theme: {
-            extend: {
-                colors: {
-                    'pastel-purple': '#B3A1C9', // Roxo pastel principal
-                    'pastel-pink': '#F7D9D9',
-                    'pastel-blue': '#C3E0E5',
-                    'primary-btn': '#8A2BE2', // Roxo mais forte para botões
-                    'recording-btn': '#D9534F', // Vermelho para gravação
-                    'connect-btn': '#5cb85c', // Verde para conectar
-                },
-                fontFamily: {
-                    sans: ['Inter', 'sans-serif'],
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teleprompter Pro</title>
+    <!-- PWA Manifest Link -->
+    <link rel="manifest" href="./manifest.json">
+    <!-- PWA Theme Color -->
+    <meta name="theme-color" content="#B3A1C9">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'pastel-purple': '#B3A1C9', // Roxo pastel principal
+                        'pastel-pink': '#F7D9D9',
+                        'pastel-blue': '#C3E0E5',
+                        'primary-btn': '#8A2BE2', // Roxo mais forte para botões
+                        'recording-btn': '#D9534F', // Vermelho para gravação
+                        'connect-btn': '#5cb85c', // Verde para conectar
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
                 },
             },
-        },
-    }
-</script>
-<style>
-    body {
-        font-family: 'Inter', sans-serif;
-        background-color: #f0f4f8; /* Fundo cinza/azul claro */
-    }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8; 
+        }
 
-    /* Estilo para garantir que o botão "A Gravar..." seja proeminente */
-    .btn-recording {
-        animation: pulse 1.5s infinite;
-    }
+        .btn-recording {
+            animation: pulse 1.5s infinite;
+        }
 
-    @keyframes pulse {
-        0% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(217, 83, 79, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0); }
-    }
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(217, 83, 79, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(217, 83, 79, 0); }
+        }
 
-    /* O contêiner de proporção usa padding-bottom para definir a altura responsiva */
-    .aspect-ratio-box {
-        position: relative;
-        width: 100%;
-        max-width: 600px; /* Limite de largura para desktop */
-        margin: 0 auto;
-        border-radius: 1.5rem;
-        overflow: hidden;
-        min-height: 300px; 
-    }
+        .aspect-ratio-box {
+            position: relative;
+            width: 100%;
+            max-width: 600px; 
+            margin: 0 auto;
+            border-radius: 1.5rem;
+            overflow: hidden;
+            min-height: 300px; 
+        }
 
-    /* Garante que os filhos do box (video e canvas) se ajustem ao contêiner responsivo */
-    .aspect-ratio-box > * {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        max-width: 100%;
-        height: auto; 
-        object-fit: cover; /* MANTÉM A PROPORÇÃO E COBRE O ESPAÇO SEM ESTICAR */
-    }
+        .aspect-ratio-box > * {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            height: auto; 
+            object-fit: cover;
+        }
 
-    /* Classes geradas por JS para forçar a proporção (padding-bottom = height/width * 100%) */
-    .aspect-16-9 { padding-bottom: 56.25%; } /* 9 / 16 = 0.5625 */
-    .aspect-9-16 { padding-bottom: 177.77%; } /* 16 / 9 = 1.7777 */
-    .aspect-4-3 { padding-bottom: 75%; } /* 3 / 4 = 0.75 */
-    .aspect-1-1 { padding-bottom: 100%; } /* 1 / 1 = 1.0 */
-</style>
+        /* Classes geradas por JS para forçar a proporção (padding-bottom = height/width * 100%) */
+        .aspect-16-9 { padding-bottom: 56.25%; }
+        .aspect-9-16 { padding-bottom: 177.77%; }
+        .aspect-4-3 { padding-bottom: 75%; }
+        .aspect-1-1 { padding-bottom: 100%; }
+    </style>
+</head>
+<body>
 
 <div class="p-4 md:p-8 min-h-screen">
     <h1 class="text-4xl font-extrabold text-center text-pastel-purple mb-6">Teleprompter Pro</h1>
@@ -367,12 +377,13 @@
         recordBtn.classList.remove('bg-primary-btn');
         recordBtn.classList.add('bg-recording-btn', 'btn-recording');
 
-        // --- Configuração do MediaRecorder para Gravar o stream do videoPreview (LIMPO) ---
-        // Este modo grava o vídeo limpo, mas sem o corte de proporção exato do Canvas.
+        // --- Configuração do MediaRecorder para Gravar o stream do Canvas (Gravação de Proporção) ---
+        // Captura o stream do Canvas. Se esta for a fonte de gravação, o vídeo final terá o overlay.
         try {
-            const videoTrack = mediaStream.getVideoTracks()[0];
-            const audioTrack = mediaStream.getAudioTracks()[0];
-            const cleanStream = new MediaStream([videoTrack, audioTrack]);
+            // O Canvas é a fonte do vídeo na proporção correta
+            const canvasStream = canvas.captureStream(30);
+            const audioStream = mediaStream.getAudioTracks()[0];
+            const cleanStream = new MediaStream([canvasStream.getVideoTracks()[0], audioStream]);
 
             mediaRecorder = new MediaRecorder(cleanStream, { mimeType: 'video/webm; codecs="vp8, opus"' });
             recordedChunks = [];
@@ -410,6 +421,9 @@
                 startTime = null;
                 prepareScript(); 
             };
+            
+            // Oculta o overlay antes de iniciar a gravação, MAS ISSO ESTÁ FAZENDO O CANVAS GRAVAR LIMPO, O QUE É BOM.
+            // isRecording = true desativa o desenho do overlay em drawFrame.
 
             mediaRecorder.start();
 
@@ -540,4 +554,6 @@
         downloadBtn.addEventListener('click', showDownloadNotification);
     });
 </script>
+</body>
+</html>
 
